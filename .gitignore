@@ -4,3 +4,4 @@ lib/
 *.tsbuildinfo
 .dsh-test/
 .env
+UPDATE_COMMANDS.md

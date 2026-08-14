@@ -1,4 +1,16 @@
-# dsh-snapshot
+<p align="center"> 
+  <img src="docs/cover.svg" alt="dsh-snapshot - Auto Snapshot & One-Click Rollback" width="100%"> 
+</p>
+
+<p align="center"> 
+  <a href="README.md">简体中文</a> | <strong>English</strong> 
+</p> 
+ 
+<p align="center"> 
+  <a href="https://www.npmjs.com/package/dsh-snapshot"><img alt="npm" src="https://img.shields.io/npm/v/dsh-snapshot?style=flat-square&color=0ea5e9"></a> 
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-263146?style=flat-square"></a> 
+  <img alt="DeepSeek Harness Plugin" src="https://img.shields.io/badge/DeepSeek%20Harness-Plugin-0284c7?style=flat-square"> 
+</p>
 
 A DeepSeek Harness plugin for **automatic snapshots and one-click rollback** — before every `write`/`edit` it saves the target file contents, and `/rollback` restores any earlier snapshot (modeled after Trae's checkpoint capability). It also ships a sidebar "snapshot timeline" panel and a settings card.
 
