@@ -228,7 +228,7 @@ export function PluginSettingsCard(props: PluginSettingsCardProps) {
               : null}
           </div>
         )
-        : null}
+      : null}
     </li>
   )
 }

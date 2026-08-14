@@ -7,6 +7,13 @@
  * produces the client artifact.
  */
 
+import { readFileSync } from 'node:fs'
+
+/** The published version, baked into the client bundle for the update check. */
+const version = (JSON.parse(
+  readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
+) as { version: string }).version
+
 /** @type {import('tsdown').UserConfig[]} */
 export default [
   {
@@ -38,6 +45,9 @@ export default [
     noExternal: (id) => (id.startsWith('@deepseek-ai/')
       && id !== '@deepseek-ai/dsh-client-runtime/client'
       && id !== '@deepseek-ai/dsh-client-ui-primitives' ? true : undefined),
+    define: {
+      __DSH_SNAPSHOT_VERSION__: JSON.stringify(version),
+    },
     outputOptions: {
       entryFileNames: 'client.js',
       banner: `window.__ModuleLoader__.load({ id: 'dsh-snapshot', factory: (require) => {`,

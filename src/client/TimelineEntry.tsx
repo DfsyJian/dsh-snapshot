@@ -10,10 +10,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { IconRefreshOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconDownloadOutline16, IconRefreshOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SnapshotClientInjected } from './types.js'
+import { UpdatePanel } from './UpdatePanel.js'
 
 /** Full props: the sidebar footer-action slot share plus the rollback channel. */
 type TimelineEntryProps = PropsRuntime<'sidebar.footer.action'> & PropsLocale<'snapshot'> & InjectFace<SnapshotClientInjected>
@@ -128,6 +129,8 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
   const [confirmClear, setConfirmClear] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [hover, setHover] = useState(false)
+  const [updateHover, setUpdateHover] = useState(false)
+  const [updateOpen, setUpdateOpen] = useState(false)
   const alive = useRef(true)
   useEffect(() => () => { alive.current = false }, [])
 
@@ -177,39 +180,76 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
 
   return (
     <>
-      <button
-        type="button"
-        title={t('timeline.title')}
-        aria-label={t('timeline.title')}
-        onClick={openPanel}
-        onMouseEnter={() => { setHover(true) }}
-        onMouseLeave={() => { setHover(false) }}
-        style={{
-          border: 'none',
-          background: hover ? 'var(--dsw-alias-interactive-bg-hover)' : 'transparent',
-          cursor: 'pointer',
-          color: 'var(--dsw-alias-label-primary)',
-          overflow: 'hidden',
-          display: 'inline-flex',
-          alignItems: 'center',
-          boxSizing: 'border-box',
-          fontFamily: 'inherit',
-          fontSize: 14,
-          lineHeight: '22px',
-          // 几何复刻设置按钮:宽栏撑满整行(100%+8px 扩展)、内容靠左,窄栏为 36x36 圆钮、内容居中。
-          flex: 'none',
-          width: wide ? 'calc(100% + 8px)' : 36,
-          height: wide ? 34 : 36,
-          margin: wide ? '4px -4px 4px' : '8px 0 10px',
-          gap: wide ? 8 : 0,
-          padding: wide ? '6px 2px 6px 10px' : 0,
-          borderRadius: wide ? 12 : '50%',
-          justifyContent: wide ? 'flex-start' : 'center',
-        }}
-      >
-        {wide ? <IconRefreshOutline14 size={16} /> : <IconRefreshOutline14 size={18} />}
-        {wide && <span style={{ whiteSpace: 'nowrap' }}>{t('timeline.button')}</span>}
-      </button>
+      <div style={{
+        display: 'flex',
+        gap: 8,
+        ...(wide
+          ? { width: 'calc(100% + 8px)', margin: '4px -4px' }
+          : { justifyContent: 'center', margin: '8px 0 10px' }),
+      }}>
+        <button
+          type="button"
+          title={t('timeline.title')}
+          aria-label={t('timeline.title')}
+          onClick={openPanel}
+          onMouseEnter={() => { setHover(true) }}
+          onMouseLeave={() => { setHover(false) }}
+          style={{
+            border: 'none',
+            background: hover ? 'var(--dsw-alias-interactive-bg-hover)' : 'transparent',
+            cursor: 'pointer',
+            color: 'var(--dsw-alias-label-primary)',
+            overflow: 'hidden',
+            display: 'inline-flex',
+            alignItems: 'center',
+            boxSizing: 'border-box',
+            fontFamily: 'inherit',
+            fontSize: 14,
+            lineHeight: '22px',
+            flex: 'none',
+            width: wide ? undefined : 36,
+            height: wide ? 34 : 36,
+            gap: wide ? 8 : 0,
+            padding: wide ? '6px 10px' : 0,
+            borderRadius: wide ? 12 : '50%',
+            justifyContent: wide ? 'flex-start' : 'center',
+          }}
+        >
+          {wide ? <IconRefreshOutline14 size={16} /> : <IconRefreshOutline14 size={18} />}
+          {wide && <span style={{ whiteSpace: 'nowrap' }}>{t('timeline.button')}</span>}
+        </button>
+        <button
+          type="button"
+          title={t('update.check')}
+          aria-label={t('update.check')}
+          onClick={() => { setUpdateOpen(true) }}
+          onMouseEnter={() => { setUpdateHover(true) }}
+          onMouseLeave={() => { setUpdateHover(false) }}
+          style={{
+            border: 'none',
+            background: updateHover ? 'var(--dsw-alias-interactive-bg-hover)' : 'transparent',
+            cursor: 'pointer',
+            color: 'var(--dsw-alias-label-primary)',
+            overflow: 'hidden',
+            display: 'inline-flex',
+            alignItems: 'center',
+            boxSizing: 'border-box',
+            fontFamily: 'inherit',
+            fontSize: 14,
+            lineHeight: '22px',
+            flex: 'none',
+            width: wide ? undefined : 36,
+            height: wide ? 34 : 36,
+            gap: wide ? 8 : 0,
+            padding: wide ? '6px 10px' : 0,
+            borderRadius: wide ? 12 : '50%',
+            justifyContent: wide ? 'flex-start' : 'center',
+          }}
+        >
+          {wide ? <IconDownloadOutline16 size={16} /> : <IconDownloadOutline16 size={18} />}
+          {wide && <span style={{ whiteSpace: 'nowrap' }}>{t('update.check')}</span>}
+        </button>
+      </div>
       {open && sessionId !== undefined && (
         <div style={overlayStyle} onClick={() => { setOpen(false) }}>
           <div style={panelStyle} onClick={(event) => { event.stopPropagation() }}>
@@ -310,6 +350,7 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
           </div>
         </div>
       )}
+      {updateOpen && <UpdatePanel t={t} onClose={() => { setUpdateOpen(false) }} />}
     </>
   )
 }

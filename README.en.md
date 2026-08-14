@@ -23,12 +23,29 @@ dsh plugin --profile web add dsh-snapshot
 
 Prerequisites:
 
-- A working `dsh` CLI. If it is not installed globally, use `npx @deepseek-ai/dsh` instead of `dsh`, or run `npm install -g @deepseek-ai/dsh` first.
+- A working `dsh` CLI on the machine. If it is not installed, run the same commands with `npx @deepseek-ai/dsh` in place of `dsh`:
+
+```sh
+npx @deepseek-ai/dsh plugin --profile web add dsh-snapshot  # install the plugin into the web profile
+npx @deepseek-ai/dsh web                                    # start dsh web
+```
+
 - A global `pnpm` on the machine (`dsh plugin` invokes pnpm to install dependencies inside the profile directory); if it is missing, run `npm install -g pnpm` first.
 
 Then restart `dsh web`. `dsh plugin` adds `dsh-snapshot` to the profile's `dependencies` and `dsh.profile.bundles` (the bundle list is the enablement entry point), and the plugin's `cordis.patch.yml` injects the `snapshot` entry into the profile config tree.
 
 For local development, build the source directory and point the profile at it with a `link:` dependency instead of the registry version (see "Development").
+
+## Upgrade
+
+`dsh plugin add` does not bump an existing dependency, so upgrade by pinning the new version inside the profile directory:
+
+```sh
+cd ~/.dsh/profiles/web
+pnpm add dsh-snapshot@<new-version>
+```
+
+Then fully stop and restart `dsh web`, and hard-refresh the browser with `Ctrl+Shift+R` (client-side copy such as the "Undo" button label lives in the browser bundle and keeps showing the old text until the cache is cleared).
 
 ## Usage
 
@@ -49,7 +66,35 @@ For local development, build the source directory and point the profile at it wi
 | `pruneOrphans` | `true` | Orphan pruning: when the workspace directory of a session no longer exists, all its snapshots are deleted (unrollbackable, space only); `false` keeps them |
 | `collapseOnRollback` | `true` | Collapse the timeline on rollback: restoring a snapshot also removes that snapshot and everything after it (rollback records included); the list keeps only the history before the rollback point. `false` keeps the superseded snapshots and the rollback record |
 
-Configuration is written through the host settings service into `settings.yaml` (namespace `snapshot`), or set directly in the profile's `cordis.yml`. The plugin config page shows the snapshot card: when the current DSH version does not expose third-party namespaces to the settings client, the card shows a note instead of the form; to enable the form, add `snapshot` to the `WEB_SETTINGS_NAMESPACES` allow-list of the host `dsh-host-apiproxy` and restart.
+Configuration can be done in either of two ways; the keys match the table above.
+
+### Method 1: the settings page (form)
+
+The client settings page shows the snapshot card under "Plugin Configuration"; the form edits every key in the table above. Saving writes through the host settings service into the `snapshot:` section of `~/.dsh/settings.yaml`.
+
+Whether the card is editable depends on the host's namespace allow-list (`WEB_SETTINGS_NAMESPACES` of `dsh-host-apiproxy`): when it contains `snapshot` the card renders an editable form, otherwise it only shows a note (form unavailable). Note that the allow-list is a **constant baked into the host source, not a runtime setting** — the npm release currently does not include `snapshot`, so the form cannot be edited under an npm host (it shows "form unavailable"); a local harness master source build already includes the namespace and edits directly. To get the form under the npm host, wait for a newer host release.
+
+### Method 2: edit the config file
+
+Skip the settings page and edit a config file directly; either location works:
+
+- The `snapshot:` section of `~/.dsh/settings.yaml` (the same location the settings page writes to):
+
+```yaml
+snapshot:
+  storeDir: D:\xiangmu\test\1
+  collapseOnRollback: true
+```
+
+- The profile's `cordis.yml` (the `web` profile maps to `~/.dsh/profiles/web/cordis.yml`):
+
+```yaml
+plugins:
+  snapshot:
+    storeDir: D:\xiangmu\test\1
+```
+
+Restart `dsh web` after editing for the change to take effect.
 
 ## Development
 

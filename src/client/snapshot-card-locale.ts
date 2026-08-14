@@ -55,6 +55,13 @@ export const zh = {
   'timeline.toolEdit': '编辑',
   'timeline.toolRollback': '回滚',
   'timeline.close': '关闭',
+  'update.check': '检查更新',
+  'update.current': '当前版本 v',
+  'update.checking': '检查中…',
+  'update.upToDate': '已是最新',
+  'update.found': '发现新版 v',
+  'update.command': 'pnpm add dsh-snapshot@',
+  'update.failed': '检查失败，请稍后重试',
 } satisfies Record<string, string>
 
 /** The snapshot card key union. */
@@ -111,4 +118,11 @@ export const en = {
   'timeline.toolEdit': 'Edit',
   'timeline.toolRollback': 'Rollback',
   'timeline.close': 'Close',
+  'update.check': 'Check for updates',
+  'update.current': 'Current version v',
+  'update.checking': 'Checking…',
+  'update.upToDate': 'Up to date',
+  'update.found': 'New version v',
+  'update.command': 'pnpm add dsh-snapshot@',
+  'update.failed': 'Check failed, try again later',
 } satisfies Record<SnapshotCardKey, string>
