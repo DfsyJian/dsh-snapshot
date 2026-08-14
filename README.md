@@ -32,7 +32,7 @@ pnpm add dsh-snapshot
 }
 ```
 
-插件的 `cordis.patch.yml` 负责把 `snapshot` 条目注入 profile 配置树。本地开发可以用 `link:` 指向源码目录代替 registry 版本(需自行保证 peer 依赖可解析,见下文"开发")。
+插件的 `cordis.patch.yml` 负责把 `snapshot` 条目注入 profile 配置树。本地开发时构建源码目录,并在 profile 里用 `link:` 指向它代替 registry 版本,见下文「开发」。
 
 ## 用法
 
@@ -62,5 +62,5 @@ pnpm install && pnpm typecheck && pnpm build
 
 `pnpm build` 依次运行 `tsc`(服务端逐文件编译)与 `tsdown`(浏览器端打成单个 `lib/client.js`,由 loader 模块表加载)。
 
-- 开发期类型检查通过 tsconfig `paths` 引用 deepseek-harness 仓库源码的构建产物;`tsdown` 与 `typescript` 在 devDependencies 中声明。
+- 类型与构建完全自包含:所有 `@deepseek-ai/*` SDK 包(含 `react`)在 devDependencies 中显式声明并解析自 npm registry,tsconfig 不引用任何 harness 源码 checkout。
 - 运行时依赖:`@deepseek-ai/schemastery`、`@deepseek-ai/dsh-settings`(与 `@deepseek-ai/cordis`)以 peer 形式声明,由 harness 宿主提供;其余 `@deepseek-ai/*` 均为 `import type`,编译后擦除。client bundle 仅 external `react`、`@deepseek-ai/dsh-client-runtime/client`(快照存储引擎)与 `@deepseek-ai/dsh-client-ui-primitives`(图标组件,运行时均由 loader 模块表提供),其余全部内联。

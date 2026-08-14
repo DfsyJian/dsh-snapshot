@@ -118,7 +118,7 @@ const rowStyle: CSSProperties = {
  */
 export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEntryProps) {
   const sessionId = useSessions(state => state.current)
-  const currentTitle = useSessions(state => state.byId[state.current ?? '']?.displayTitle)
+  const currentTitle = useSessions(state => state.current === undefined ? undefined : state.byId[state.current]?.displayTitle)
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<TimelineItem[]>([])
   const [loading, setLoading] = useState(false)

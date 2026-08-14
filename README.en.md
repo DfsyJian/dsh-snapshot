@@ -30,7 +30,7 @@ Then add the plugin to your profile's bundle list. For the `web` profile, edit `
 }
 ```
 
-The plugin's `cordis.patch.yml` injects the `snapshot` entry into the profile config tree. For local development you can use a `link:` dependency pointing at the source directory instead of the registry version (you must then provide resolvable peer dependencies yourself, see "Development").
+The plugin's `cordis.patch.yml` injects the `snapshot` entry into the profile config tree. For local development, build the source directory and point the profile at it with a `link:` dependency instead of the registry version (see "Development").
 
 ## Usage
 
@@ -60,5 +60,5 @@ pnpm install && pnpm typecheck && pnpm build
 
 `pnpm build` runs `tsc` (server half, file-by-file emit) followed by `tsdown` (browser half bundled into a single `lib/client.js`, loaded by the loader module table).
 
-- During development, type checking resolves through tsconfig `paths` to build artifacts of the deepseek-harness repo; `tsdown` and `typescript` are declared in devDependencies.
+- The build is fully self-contained: every `@deepseek-ai/*` SDK package (including `react`) is declared in devDependencies and resolved from the npm registry; the tsconfig does not reference any harness source checkout.
 - Runtime dependencies: `@deepseek-ai/schemastery`, `@deepseek-ai/dsh-settings` (with `@deepseek-ai/cordis`) are declared as peers and provided by the harness host; the other `@deepseek-ai/*` imports are all `import type` and erased at compile time. The client bundle only externals `react`, `@deepseek-ai/dsh-client-runtime/client` (snapshot storage engine) and `@deepseek-ai/dsh-client-ui-primitives` (icon components, both provided at runtime by the loader module table); everything else is inlined.
