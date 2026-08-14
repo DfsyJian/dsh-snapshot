@@ -104,7 +104,7 @@ pnpm add dsh-snapshot@<新版本号>
 dsh 客户端设置页的「插件配置」会显示 snapshot 卡片，在表单内可直接修改上表各项。保存后经宿主 settings 服务写入 `~/.dsh/settings.yaml` 的 `snapshot:` 段。
 
 <div align="center">
-  <img src="docs/settings.png" alt="插件设置页" width="600" />
+  <img src="docs/settings1.png" alt="插件设置页" width="600" />
 </div>
 
 > **ℹ️ 表单不可用？**
