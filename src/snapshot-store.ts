@@ -110,6 +110,24 @@ export class SnapshotStore {
     await rm(this.dir(), { recursive: true, force: true })
   }
 
+  /**
+   * Drop every record with seq >= fromSeq — the rolled-back snapshot and
+   * everything after it, including any rollback record. Keeps the earlier
+   * history; the next append resumes the sequence at fromSeq.
+   */
+  async truncateFrom(fromSeq: number): Promise<void> {
+    const kept = (await this.readLines()).filter(line => {
+      let record: SnapshotRecord | undefined
+      try {
+        record = JSON.parse(line) as SnapshotRecord
+      } catch {
+        record = undefined
+      }
+      return record === undefined || record.seq < fromSeq
+    })
+    await writeFile(this.file(), `${kept.join('\n')}\n`, 'utf8')
+  }
+
   private async nextSeq(): Promise<number> {
     const records = await this.list()
     const last = records.at(-1)

@@ -23,6 +23,11 @@ DeepSeek Harness 插件:在 agent 每次执行 `write`/`edit` 之前自动快照
 dsh plugin --profile web add dsh-snapshot
 ```
 
+前提:
+
+- `dsh` CLI 可用。未全局安装时用 `npx @deepseek-ai/dsh` 代替 `dsh`,或先执行 `npm install -g @deepseek-ai/dsh`。
+- 机器上有全局 `pnpm`(`dsh plugin` 内部会在 profile 目录调用 pnpm 安装依赖),缺失时先执行 `npm install -g pnpm`。
+
 装完重启 `dsh web` 即可。`dsh plugin` 会把 `dsh-snapshot` 写入 profile 的 `dependencies` 与 `dsh.profile.bundles`(bundle 列表即插件启用入口),插件的 `cordis.patch.yml` 负责把 `snapshot` 条目注入 profile 配置树。
 
 本地开发时构建源码目录,并在 profile 里用 `link:` 指向它代替 registry 版本,见下文「开发」。
@@ -44,6 +49,7 @@ dsh plugin --profile web add dsh-snapshot
 | `maxRetain` | `100` | 每会话最大保留条数,`0` 为不限 |
 | `maxProjectRetain` | `100` | 项目级总量控制:同一工作区(会话 cwd)所有会话共享该配额,超限按捕获时间最旧优先清理,`0` 为不限 |
 | `pruneOrphans` | `true` | 孤儿清理:某会话所属工作区目录已不存在时,自动删除该会话全部快照(不可回滚,仅占空间),`false` 为保留 |
+| `collapseOnRollback` | `true` | 撤回后折叠时间线:撤回某条快照会同时清除该快照及之后的所有记录(含回滚记录),列表只保留撤回点之前的历史;`false` 则保留后续快照与回滚记录 |
 
 配置经宿主 settings 服务写入 `settings.yaml`(namespace `snapshot`),或直接在 profile 的 `cordis.yml` 中配置。设置页「插件配置」会显示 snapshot 卡片:当前 DSH 版本未向配置客户端暴露第三方命名空间时,卡片显示说明而非表单;要启用表单,把 `snapshot` 加入宿主 `dsh-host-apiproxy` 的 `WEB_SETTINGS_NAMESPACES` 白名单后重启即可。
 

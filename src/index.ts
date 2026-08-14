@@ -39,6 +39,13 @@ export interface Config {
    * disk; their snapshots can never be rolled back again. Defaults to true.
    */
   pruneOrphans?: boolean
+  /**
+   * Fold the timeline on rollback: restoring a snapshot also drops that
+   * snapshot and everything after it (the rollback record included), so the
+   * list keeps only the history before the rollback point. Defaults to true;
+   * set false to keep the superseded snapshots and the rollback record.
+   */
+  collapseOnRollback?: boolean
 }
 
 /** Schema the `snapshot` settings namespace resolves through (the plugin Config). */
@@ -48,6 +55,7 @@ export const Config: z<Config> = z.object({
   maxRetain: z.number().step(1).min(0).default(100),
   maxProjectRetain: z.number().step(1).min(0).default(100),
   pruneOrphans: z.boolean().default(true),
+  collapseOnRollback: z.boolean().default(true),
 })
 
 /** Settings namespace carrying this plugin's configuration section. */
@@ -88,5 +96,5 @@ export function apply(ctx: Context, config: Config = {}): void {
   // Without a settings service installSettingsSection never runs its body, so
   // the entry-config default still has to arm capture here.
   syncCapture()
-  applyRollback(ctx, makeStore)
+  applyRollback(ctx, makeStore, () => current().collapseOnRollback !== false)
 }

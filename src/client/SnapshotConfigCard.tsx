@@ -21,6 +21,8 @@ export interface SnapshotSettings {
   maxProjectRetain?: number
   /** Whether orphan snapshots are pruned. */
   pruneOrphans?: boolean
+  /** Whether rolling back folds the history past the restored snapshot. */
+  collapseOnRollback?: boolean
 }
 
 /** What the snapshot card renders. */
@@ -35,6 +37,8 @@ export interface SnapshotConfigCardState extends CardShell {
   maxProjectRetain: CardFieldState
   /** Orphan pruning. */
   pruneOrphans: CardFieldState
+  /** Rollback folding. */
+  collapseOnRollback: CardFieldState
 }
 
 /** The registration-side face the card's slot entry injects. */
@@ -58,6 +62,7 @@ export class SnapshotConfigCardController {
       numberField('maxRetain', { integer: true, min: 0 }),
       numberField('maxProjectRetain', { integer: true, min: 0 }),
       booleanField('pruneOrphans'),
+      booleanField('collapseOnRollback'),
     ])
     this.store = this.form.bind(() => this.projection())
   }
@@ -70,6 +75,7 @@ export class SnapshotConfigCardController {
       maxRetain: this.form.field('maxRetain'),
       maxProjectRetain: this.form.field('maxProjectRetain'),
       pruneOrphans: this.form.field('pruneOrphans'),
+      collapseOnRollback: this.form.field('collapseOnRollback'),
     }
   }
 
@@ -163,6 +169,17 @@ export function SnapshotConfigCard(props: SnapshotConfigCardProps) {
         {...state.pruneOrphans}
         onEdit={(text) => { props.edit('pruneOrphans', text) }}
         onReset={() => { props.resetField('pruneOrphans') }}
+      />
+      <BooleanField
+        id="settings-snapshot-collapse-rollback"
+        label={t('settings.collapseOnRollback')}
+        hint={t('settings.collapseOnRollbackHint')}
+        onLabel={t('settings.on')}
+        offLabel={t('settings.off')}
+        {...fieldProps}
+        {...state.collapseOnRollback}
+        onEdit={(text) => { props.edit('collapseOnRollback', text) }}
+        onReset={() => { props.resetField('collapseOnRollback') }}
       />
     </PluginSettingsCard>
   )

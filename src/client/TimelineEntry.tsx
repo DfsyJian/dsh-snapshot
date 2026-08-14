@@ -124,6 +124,7 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [rollingBack, setRollingBack] = useState<number | null>(null)
+  const [confirmRollbackSeq, setConfirmRollbackSeq] = useState<number | null>(null)
   const [confirmClear, setConfirmClear] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [hover, setHover] = useState(false)
@@ -134,6 +135,7 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
     if (sessionId === undefined) return
     setLoading(true)
     setError(null)
+    setConfirmRollbackSeq(null)
     void runRollback(sessionId, '/rollback list').then(result => {
       if (!alive.current) return
       setLoading(false)
@@ -153,6 +155,7 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
   const rollback = useCallback((seq: number) => {
     if (sessionId === undefined || rollingBack !== null) return
     setRollingBack(seq)
+    setConfirmRollbackSeq(null)
     void runRollback(sessionId, `/rollback ${seq} --yes`).then(() => {
       if (!alive.current) return
       setRollingBack(null)
@@ -167,6 +170,7 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
       if (!alive.current) return
       setClearing(false)
       setConfirmClear(false)
+      setConfirmRollbackSeq(null)
       void refresh()
     })
   }, [clearing, refresh, runRollback, sessionId])
@@ -228,7 +232,7 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
               <span style={{ flex: 1 }} />
               <button
                 type="button"
-                onClick={() => { setConfirmClear(true) }}
+                onClick={() => { setConfirmClear(true); setConfirmRollbackSeq(null) }}
                 disabled={clearing || confirmClear}
                 style={{ ...panelButtonStyle, color: 'var(--dsw-alias-state-error-primary)', borderColor: 'rgba(229, 72, 77, 0.45)' }}
               >
@@ -254,6 +258,17 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
                 </button>
                 <button type="button" onClick={() => { void clear() }} disabled={clearing} style={{ ...panelButtonStyle, background: '#e5484d', color: '#ffffff', borderColor: '#e5484d' }}>
                   {clearing ? t('timeline.clearing') : t('timeline.clearAction')}
+                </button>
+              </div>
+            )}
+            {confirmRollbackSeq !== null && (
+              <div style={promptBarStyle}>
+                <span style={{ flex: 1 }}>{t('timeline.rollbackConfirm')}{confirmRollbackSeq}{t('timeline.rollbackBefore')}?</span>
+                <button type="button" onClick={() => { setConfirmRollbackSeq(null) }} disabled={rollingBack !== null} style={panelButtonStyle}>
+                  {t('timeline.cancel')}
+                </button>
+                <button type="button" onClick={() => { rollback(confirmRollbackSeq) }} disabled={rollingBack !== null} style={{ ...panelButtonStyle, background: '#e5484d', color: '#ffffff', borderColor: '#e5484d' }}>
+                  {t('timeline.rollbackAction')}
                 </button>
               </div>
             )}
@@ -284,7 +299,7 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
                   <button
                     type="button"
                     disabled={rollingBack !== null}
-                    onClick={() => { rollback(item.seq) }}
+                    onClick={() => { setConfirmRollbackSeq(current => current === item.seq ? null : item.seq) }}
                     style={panelButtonStyle}
                   >
                     {rollingBack === item.seq ? t('timeline.rollingBack') : t('timeline.rollback')}
@@ -318,5 +333,17 @@ const confirmBarStyle: CSSProperties = {
   marginBottom: 6,
   background: 'rgba(229, 72, 77, 0.08)',
   border: '1px solid rgba(229, 72, 77, 0.35)',
+  borderRadius: 6,
+}
+
+/** Neutral prompt bar: asks before rolling back one snapshot. */
+const promptBarStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '6px 8px',
+  marginBottom: 6,
+  background: 'var(--dsw-alias-bg-layer-3)',
+  border: '1px solid var(--dsw-alias-border-l2)',
   borderRadius: 6,
 }

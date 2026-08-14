@@ -5,6 +5,11 @@
  * A restore may target a snapshot sequence (`<seq>`) or the latest mutation
  * of one tool call (`--call <callId>`), the form the web UI's per-message
  * undo button uses.
+ *
+ * When the `collapseOnRollback` flag is on, a successful restore additionally
+ * drops the restored snapshot and everything after it (the rollback record
+ * included), so the timeline folds back to the history before the rollback
+ * point instead of keeping the superseded branch.
  * @module dsh-snapshot/rollback
  */
 
@@ -19,11 +24,13 @@ import type { SnapshotStore } from './snapshot-store.js'
 /**
  * Restore one snapshot: record the current state (so this rollback can itself
  * be rolled back), then write the snapshot's content back — or delete the
- * file when the snapshot captured a creation.
+ * file when the snapshot captured a creation. With `collapseOnRollback` on,
+ * the restored snapshot and everything after it are dropped afterwards.
  * @param ctx - plugin context with the fs service.
  * @param agent - the receiving agent (cwd source for the fs sandbox policy).
  * @param store - the session's snapshot store.
  * @param record - the snapshot to restore.
+ * @param collapse - whether the rollback folds the history past this point.
  * @returns the settled restore result.
  */
 async function restoreOne(
@@ -31,6 +38,7 @@ async function restoreOne(
   agent: Agent,
   store: SnapshotStore,
   record: SnapshotRecord,
+  collapse: () => boolean,
 ): Promise<CommandResult> {
   try {
     const target = await ctx.fs.resolve(record.path, { cwd: agent.session.header.cwd })
@@ -50,12 +58,18 @@ async function restoreOne(
       after: null,
       prompt: `回滚至快照 #${record.seq}`,
     })
+    // With collapse on, a successful restore drops the restored snapshot and
+    // everything after it — the rollback record just appended included.
+    const collapseHistory = async (): Promise<void> => {
+      if (collapse()) await store.truncateFrom(record.seq)
+    }
     if (record.before === null) {
       // Snapshot captured a file creation; restoring it removes the file.
       // The fs service exposes no removal API, so deletion uses Node's
       // unlink directly — valid for the local backend where displayPath
       // is an absolute path; remote backends fail with an explicit error.
       if (current !== null) await unlink(target.displayPath)
+      await collapseHistory()
       return { kind: 'success', text: `Removed ${record.path} (restored snapshot #${record.seq} creation).` }
     }
     // Rollback is a human-invoked, --yes-confirmed operation: it restores
@@ -66,6 +80,7 @@ async function restoreOne(
       mode: 'danger-full-access',
       workspaceRoot: agent.session.header.cwd ?? '',
     })
+    await collapseHistory()
     return { kind: 'success', text: `Restored ${record.path} to snapshot #${record.seq}.` }
   } catch (error: unknown) {
     return { kind: 'error', text: `Restore failed: ${error instanceof Error ? error.message : String(error)}` }
@@ -77,8 +92,14 @@ async function restoreOne(
  * @param ctx - plugin context that owns the command.
  * @param makeStore - per-session snapshot store factory; the workspace cwd tags
  * the store's project for the project-wide quota.
+ * @param collapse - whether a successful restore folds the history past the
+ * restored snapshot (read per call, so config changes apply immediately).
  */
-export function applyRollback(ctx: Context, makeStore: (sessionId: string, project?: string) => SnapshotStore): void {
+export function applyRollback(
+  ctx: Context,
+  makeStore: (sessionId: string, project?: string) => SnapshotStore,
+  collapse: () => boolean = () => true,
+): void {
   ctx.commands.register({
     name: 'rollback',
     description: 'List, clear, or restore file snapshots',
@@ -131,7 +152,7 @@ export function applyRollback(ctx: Context, makeStore: (sessionId: string, proje
             text: `Restore "${record.path}" to snapshot #${record.seq} (${record.time})? Re-run with --yes to confirm.`,
           }
         }
-        return restoreOne(ctx, agent, store, record)
+        return restoreOne(ctx, agent, store, record, collapse)
       }
       const seq = Number(args[0])
       if (!Number.isInteger(seq)) {
@@ -147,7 +168,7 @@ export function applyRollback(ctx: Context, makeStore: (sessionId: string, proje
           text: `Restore "${record.path}" to snapshot #${seq} (${record.time})? Re-run with --yes to confirm.`,
         }
       }
-      return restoreOne(ctx, agent, store, record)
+      return restoreOne(ctx, agent, store, record, collapse)
     },
   })
 }

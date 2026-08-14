@@ -21,6 +21,11 @@ Install the plugin into a **profile** (`dsh web` uses the `web` profile) with th
 dsh plugin --profile web add dsh-snapshot
 ```
 
+Prerequisites:
+
+- A working `dsh` CLI. If it is not installed globally, use `npx @deepseek-ai/dsh` instead of `dsh`, or run `npm install -g @deepseek-ai/dsh` first.
+- A global `pnpm` on the machine (`dsh plugin` invokes pnpm to install dependencies inside the profile directory); if it is missing, run `npm install -g pnpm` first.
+
 Then restart `dsh web`. `dsh plugin` adds `dsh-snapshot` to the profile's `dependencies` and `dsh.profile.bundles` (the bundle list is the enablement entry point), and the plugin's `cordis.patch.yml` injects the `snapshot` entry into the profile config tree.
 
 For local development, build the source directory and point the profile at it with a `link:` dependency instead of the registry version (see "Development").
@@ -42,6 +47,7 @@ For local development, build the source directory and point the profile at it wi
 | `maxRetain` | `100` | Max snapshots kept per session; `0` means unlimited |
 | `maxProjectRetain` | `100` | Project-wide cap: all sessions sharing a workspace (session cwd) share this quota; on overflow the oldest by capture time is pruned; `0` means unlimited |
 | `pruneOrphans` | `true` | Orphan pruning: when the workspace directory of a session no longer exists, all its snapshots are deleted (unrollbackable, space only); `false` keeps them |
+| `collapseOnRollback` | `true` | Collapse the timeline on rollback: restoring a snapshot also removes that snapshot and everything after it (rollback records included); the list keeps only the history before the rollback point. `false` keeps the superseded snapshots and the rollback record |
 
 Configuration is written through the host settings service into `settings.yaml` (namespace `snapshot`), or set directly in the profile's `cordis.yml`. The plugin config page shows the snapshot card: when the current DSH version does not expose third-party namespaces to the settings client, the card shows a note instead of the form; to enable the form, add `snapshot` to the `WEB_SETTINGS_NAMESPACES` allow-list of the host `dsh-host-apiproxy` and restart.
 
