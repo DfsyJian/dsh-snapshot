@@ -1,17 +1,25 @@
 # dsh-snapshot
 
-A DeepSeek Harness plugin that snapshots the target file contents before every `write`/`edit` the agent performs, and offers the `/rollback` command to list the history and restore any earlier snapshot. The browser half ships a sidebar "snapshot timeline" panel and a plugin settings card; the UI follows the web app language (Chinese/English) and light/dark theme.
+A DeepSeek Harness plugin for **automatic snapshots and one-click rollback** — before every `write`/`edit` it saves the target file contents, and `/rollback` restores any earlier snapshot (modeled after Trae's checkpoint capability). It also ships a sidebar "snapshot timeline" panel and a settings card.
 
 ## Features
 
-- **Automatic snapshots**: before each `write`/`edit`, the current contents of the target file are saved and appended to the session's `snapshots.jsonl`, annotated with the opening text of the user message that triggered the snapshot.
-- **Snapshot timeline**: an entry at the bottom of the sidebar, styled to match the settings button below it. Clicking it opens a panel listing every snapshot of the current session: the primary line shows the user-message preview that triggered the snapshot (rollback records read "Rollback to snapshot #N"), the secondary line shows the tool and the file path, and each row can be rolled back individually. The header offers a "Clear" button that asks for confirmation before deleting all snapshots of the session, and shows the current session title.
-- **Settings card**: the plugin config page shows a snapshot card styled like the built-in bash/agent-loop/web-search cards, with edits applied immediately. Boolean fields are two-state switches; number fields fall back to the plugin default when left blank or restored.
-- **Commands**:
-  - `/rollback list` lists the snapshots
-  - `/rollback <seq> --yes` restores a snapshot (the current state is recorded first, so you can roll back again)
-  - `/rollback --call <callId> --yes` rolls back by tool call
-  - `/rollback clear --yes` clears all snapshots of this session
+Before every `write`/`edit` the target file contents are snapshotted and appended to the session's `snapshots.jsonl`, annotated with the opening text of the user message that triggered the snapshot.
+
+### UI
+
+- **Snapshot timeline**: the sidebar's bottom "Snapshots" button opens a panel listing every snapshot of the current session; each row shows the triggering user-message preview (rollback records read "Rollback to snapshot #N"), the tool, and the file path. Click a row to roll back to that state (the current state is recorded first, so you can roll back again); the header "Clear" button asks for confirmation before deleting all snapshots.
+
+![Snapshot timeline](docs/timeline.png)
+
+- **Settings card**: the plugin config page shows a snapshot card with two-state switches for booleans and number fields that fall back to the plugin default when blank or restored; edits apply immediately.
+
+### Commands
+
+- `/rollback list` lists the snapshots
+- `/rollback <seq> --yes` restores a snapshot (the current state is recorded first, so you can roll back again)
+- `/rollback --call <callId> --yes` rolls back by tool call
+- `/rollback clear --yes` clears all snapshots of this session
 
 ## Install
 
@@ -71,6 +79,8 @@ Configuration can be done in either of two ways; the keys match the table above.
 ### Method 1: the settings page (form)
 
 The client settings page shows the snapshot card under "Plugin Configuration"; the form edits every key in the table above. Saving writes through the host settings service into the `snapshot:` section of `~/.dsh/settings.yaml`.
+
+![Plugin settings card](docs/settings.png)
 
 Whether the card is editable depends on the host's namespace allow-list (`WEB_SETTINGS_NAMESPACES` of `dsh-host-apiproxy`): when it contains `snapshot` the card renders an editable form, otherwise it only shows a note (form unavailable). Note that the allow-list is a **constant baked into the host source, not a runtime setting** — the npm release currently does not include `snapshot`, so the form cannot be edited under an npm host (it shows "form unavailable"); a local harness master source build already includes the namespace and edits directly. To get the form under the npm host, wait for a newer host release.
 
