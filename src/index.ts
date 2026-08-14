@@ -7,10 +7,11 @@
  * @module dsh-snapshot
  */
 
+import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
-import { SnapshotStore } from './snapshot-store.js'
+import { dshHome, SnapshotStore } from './snapshot-store.js'
 import { applyCapture } from './capture.js'
 import { applyRollback } from './rollback.js'
 
@@ -51,7 +52,7 @@ export interface Config {
 /** Schema the `snapshot` settings namespace resolves through (the plugin Config). */
 export const Config: z<Config> = z.object({
   enabled: z.boolean().default(true),
-  storeDir: z.string(),
+  storeDir: z.string().default(join(dshHome(), 'snapshots')),
   maxRetain: z.number().step(1).min(0).default(100),
   maxProjectRetain: z.number().step(1).min(0).default(100),
   pruneOrphans: z.boolean().default(true),
