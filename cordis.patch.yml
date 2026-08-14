@@ -1,0 +1,3 @@
+- insert:
+    - id: snapshot
+      name: dsh-snapshot

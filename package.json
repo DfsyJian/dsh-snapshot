@@ -1,0 +1,72 @@
+{
+  "name": "dsh-snapshot",
+  "version": "0.2.3",
+  "description": "Snapshot every write/edit the agent makes, then roll back to any earlier state. Includes a browser half: sidebar snapshot timeline and plugin settings card.",
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml"
+  ],
+  "engines": {
+    "node": "^22.19 || >=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && tsdown",
+    "typecheck": "tsc -p tsconfig.json",
+    "prepare": "pnpm run build"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-api-remotes"
+      ],
+      "platform": "web"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "@deepseek-ai/dsh-settings": "^0.1.0-rc.5",
+    "@deepseek-ai/dsh-client-runtime": "^0.1.0-rc.5",
+    "@deepseek-ai/dsh-client-connection": "^0.1.0-rc.5",
+    "@deepseek-ai/dsh-client-locale": "^0.1.0-rc.5",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.1.0-rc.5",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.0-rc.5",
+    "@deepseek-ai/dsh-client-ui-primitives": "^0.1.0-rc.5",
+    "@deepseek-ai/dsh-client-ui-settings": "^0.1.0-rc.5",
+    "@deepseek-ai/dsh-client-ui-sidebar": "^0.1.0-rc.5",
+    "@deepseek-ai/dsh-api-remotes": "^0.1.0-rc.5",
+    "@deepseek-ai/dsh-commands": "^0.1.0-rc.5",
+    "@deepseek-ai/dsh-typert-protocol": "^0.1.0-rc.5",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.1",
+    "@types/node": "^22.10.0",
+    "@types/react": "~18.3.31",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.7.0"
+  }
+}
