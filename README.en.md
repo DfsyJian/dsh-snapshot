@@ -15,22 +15,15 @@ A DeepSeek Harness plugin that snapshots the target file contents before every `
 
 ## Install
 
-Install via pnpm (required, to resolve peer dependencies):
+Install the plugin into a **profile** (`dsh web` uses the `web` profile) with the `dsh plugin` command; it writes the dependency and the bundle list for you, no manual editing:
 
 ```sh
-pnpm add dsh-snapshot
+dsh plugin --profile web add dsh-snapshot
 ```
 
-Then add the plugin to your profile's bundle list. For the `web` profile, edit `~/.dsh/profiles/web/package.json`:
+Then restart `dsh web`. `dsh plugin` adds `dsh-snapshot` to the profile's `dependencies` and `dsh.profile.bundles` (the bundle list is the enablement entry point), and the plugin's `cordis.patch.yml` injects the `snapshot` entry into the profile config tree.
 
-```json
-{
-  "dependencies": { "dsh-snapshot": "^0.2.0" },
-  "dsh": { "profile": { "bundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-snapshot"] } }
-}
-```
-
-The plugin's `cordis.patch.yml` injects the `snapshot` entry into the profile config tree. For local development, build the source directory and point the profile at it with a `link:` dependency instead of the registry version (see "Development").
+For local development, build the source directory and point the profile at it with a `link:` dependency instead of the registry version (see "Development").
 
 ## Usage
 

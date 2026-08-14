@@ -17,22 +17,15 @@ DeepSeek Harness 插件:在 agent 每次执行 `write`/`edit` 之前自动快照
 
 ## 安装
 
-插件通过 pnpm 安装(必需,用于解析 peer 依赖):
+插件通过 `dsh plugin` 命令安装进 **profile**(`dsh web` 对应 `web` profile),自动写入依赖与 bundle 列表,无需手动编辑:
 
 ```sh
-pnpm add dsh-snapshot
+dsh plugin --profile web add dsh-snapshot
 ```
 
-然后把它加入 profile 的 bundle 列表。以 `web` profile 为例,编辑 `~/.dsh/profiles/web/package.json`:
+装完重启 `dsh web` 即可。`dsh plugin` 会把 `dsh-snapshot` 写入 profile 的 `dependencies` 与 `dsh.profile.bundles`(bundle 列表即插件启用入口),插件的 `cordis.patch.yml` 负责把 `snapshot` 条目注入 profile 配置树。
 
-```json
-{
-  "dependencies": { "dsh-snapshot": "^0.2.0" },
-  "dsh": { "profile": { "bundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-snapshot"] } }
-}
-```
-
-插件的 `cordis.patch.yml` 负责把 `snapshot` 条目注入 profile 配置树。本地开发时构建源码目录,并在 profile 里用 `link:` 指向它代替 registry 版本,见下文「开发」。
+本地开发时构建源码目录,并在 profile 里用 `link:` 指向它代替 registry 版本,见下文「开发」。
 
 ## 用法
 
