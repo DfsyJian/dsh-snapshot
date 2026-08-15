@@ -1,6 +1,6 @@
-<p align="center"> 
-  <img src="docs/cover.svg" alt="dsh-snapshot - Auto Snapshot & One-Click Rollback" width="100%"> 
-</p>
+<div align="center">
+  <img src="docs/cover.zh.svg" alt="dsh-snapshot - 自动快照与一键回滚" width="100%">
+</div>
 
 <p align="center"> 
   <strong>简体中文</strong> | <a href="README.en.md">English</a> 
@@ -12,23 +12,24 @@
   <img alt="DeepSeek Harness Plugin" src="https://img.shields.io/badge/DeepSeek%20Harness-Plugin-0284c7?style=flat-square"> 
 </p>
 
-**自动快照、一键回滚**的 DeepSeek Harness 插件。
+**自动快照、一键回滚**的 DeepSeek Harness（DSH）Web 插件。
 
-> Agent 每次 `write`/`edit` 前自动保存目标文件内容，支持 `/rollback` 命令恢复到任意历史快照（类似 Trae 的 Checkpoint 能力）。
+> Agent 每次 `write`/`edit` 前自动保存目标文件内容，经 shell 执行删除（如 `Remove-Item`、`rm`）时也先保存被删文件内容，支持 `/rollback` 命令恢复到任意历史快照（类似 Trae 的 Checkpoint 能力）。
 > 附带侧边栏 **“快照时间线”** 面板与 **设置页配置卡片**。
 
 ---
 
 ## 功能
 
-每次 `write`/`edit` 前自动快照目标文件内容，追加进该会话的 `snapshots.jsonl`，并记录触发快照的用户消息开头作为标注。
+每次 `write`/`edit` 前自动快照目标文件内容；agent 经 shell 执行删除（如 `Remove-Item`、`rm`）时，先快照被删文件的内容再放行。所有快照追加进该会话的 `snapshots.jsonl`。同一用户消息引发的所有快照自动归为一组：**时间线以「对话」为单位显示一行，撤回一行即整体还原该对话产生的全部修改**。
 
 ### 界面操作
 
 - **快照时间线**
-  侧边栏底部「快照」按钮点击打开面板，列出当前会话全部快照。
-  - 每条记录显示：触发快照的用户消息预览、使用的工具与文件路径。
-  - 点击某条记录即**回滚到该状态**（回滚前自动记录当前状态，支持再次回滚）。
+  侧边栏底部「快照」按钮点击打开面板，列出当前会话的快照历史。
+  - **一行 = 一次对话**：同一条用户消息引发的多次写入/编辑/删除合并为一行，显示该消息的预览与「创建/修改/删除」统计（如 `创建 ×2 · 修改 ×1`，只列出出现的类型；**按文件数统计**，同一文件多次写入只计一次）；仅改动一个文件时附上文件路径。
+  - 点击某行即**整体撤回该对话产生的全部修改**（撤回前自动记录当前状态，支持再次撤回）。
+  - 撤回某一对话后，其后的历史默认一并折叠（由 `collapseOnRollback` 控制）。
   - 头部「清空」按钮可二次确认后删除全部快照。
 
 <div align="center">
@@ -41,9 +42,9 @@
 ### 命令操作
 
 ```sh
-/rollback list                     # 列出快照
-/rollback <seq> --yes              # 恢复到指定快照（恢复前先记录当前状态，可再回滚）
-/rollback --call <callId> --yes    # 按工具调用回滚
+/rollback list                     # 列出快照历史（每次对话一行）
+/rollback <seq> --yes              # 整体撤回指定对话产生的全部修改（撤回前先记录当前状态，可再撤回）
+/rollback --call <callId> --yes    # 按工具调用撤回单个快照
 /rollback clear --yes              # 清空该会话全部快照
 ```
 
@@ -90,12 +91,12 @@ pnpm add dsh-snapshot@<新版本号>
 
 | 配置项 | 默认值 | 说明 |
 |---|---|---|
-| `enabled` | `true` | **总开关**，关闭后不再捕获新的写入/编辑，已有快照保留（回滚仍可用） |
+| `enabled` | `true` | **总开关**，关闭后不再捕获新的写入/编辑/删除，已有快照保留（回滚仍可用） |
 | `storeDir` | `$DSH_HOME/snapshots` | 快照存储根目录，每会话一个子目录 |
 | `maxRetain` | `100` | 每会话最大保留条数，`0` 为不限 |
 | `maxProjectRetain` | `100` | **项目级总量控制**：同一工作区（会话 cwd）所有会话共享该配额，超限按捕获时间最旧优先清理，`0` 为不限 |
 | `pruneOrphans` | `true` | **孤儿清理**：某会话所属工作区目录已不存在时，自动删除该会话全部快照（不可回滚，仅占空间），`false` 为保留 |
-| `collapseOnRollback` | `true` | **撤回后折叠时间线**：撤回某条快照会同时清除该快照及之后的所有记录（含回滚记录），列表只保留撤回点之前的历史；`false` 则保留后续快照与回滚记录 |
+| `collapseOnRollback` | `true` | **撤回后折叠时间线**：撤回某次对话会同时清除该对话及之后的所有记录（含回滚记录），列表只保留撤回点之前的历史；`false` 则保留后续快照与回滚记录 |
 
 配置可通过以下两种方式之一进行。
 

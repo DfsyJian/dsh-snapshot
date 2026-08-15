@@ -44,11 +44,11 @@
        dsh-snapshot 
      </text> 
      <text x="80" y="190" font-family="ui-sans-serif, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="500" fill="#94a3b8"> 
-       Auto Snapshot · One‑Click Rollback 
+       自动快照 · 一键回滚
      </text> 
      <rect x="80" y="210" width="220" height="32" rx="8" fill="#0ea5e9" opacity="0.15"/> 
      <text x="92" y="232" font-family="ui-sans-serif, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="600" fill="#38bdf8"> 
-       DeepSeek Harness Plugin 
+       DeepSeek Harness 插件
      </text> 
    </g> 
   
@@ -76,7 +76,7 @@
      <g font-family="ui-sans-serif, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="600" fill="#94a3b8"> 
        <text x="580" y="356" text-anchor="middle">v1</text> 
        <text x="720" y="358" text-anchor="middle" fill="#22d3ee" font-size="18">v2</text> 
-       <text x="720" y="380" text-anchor="middle" fill="#38bdf8" font-size="14" font-weight="500">Restored</text> 
+       <text x="720" y="380" text-anchor="middle" fill="#38bdf8" font-size="14" font-weight="500">已恢复</text> 
        <text x="860" y="356" text-anchor="middle" fill="#475569">v3</text> 
        <text x="1000" y="356" text-anchor="middle" fill="#475569">latest</text> 
      </g> 
@@ -94,4 +94,4 @@
         </text>
       </g>
    </g> 
- </svg>
+</svg>

@@ -1,8 +1,8 @@
 /**
- * The update-check panel opened from the sidebar action beside the snapshot
- * timeline button. It probes the npm registry once on mount and shows the
- * installed version plus the outcome — detection only, a newer release is
- * reported with its upgrade command, never applied.
+ * The update-check panel opened from the snapshot timeline panel's footer.
+ * It probes the npm registry once on mount and shows the installed version
+ * plus the outcome — detection only, a newer release is reported with its
+ * upgrade command, never applied.
  * @module dsh-snapshot/client/UpdatePanel
  */
 

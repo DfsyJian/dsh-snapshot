@@ -4,8 +4,13 @@
  * @module dsh-snapshot/types
  */
 
-/** The mutation kind that produced one snapshot. */
-export type SnapshotTool = 'write' | 'edit' | 'rollback'
+/**
+ * The mutation kind that produced one snapshot. `delete` snapshots are taken
+ * from shell deletion commands (`bash` `rm`/`unlink`, `pwsh` `Remove-Item` and
+ * its aliases): the target file's content is recorded before the command runs,
+ * so a rollback restores the deleted file.
+ */
+export type SnapshotTool = 'write' | 'edit' | 'rollback' | 'delete'
 
 /** One recorded file snapshot. */
 export interface SnapshotRecord {
@@ -33,6 +38,14 @@ export interface SnapshotRecord {
    * on stores written before the field existed and on rollback bookkeeping.
    */
   prompt?: string
+  /**
+   * Durable identity of the user message that drove this mutation, so the
+   * timeline groups every snapshot of one message into a single row and one
+   * rollback restores them all. Rollback bookkeeping tags one rollback action
+   * with a synthetic `rollback:`-prefixed id. Absent on stores written before
+   * the field existed: each such record is its own single-entry group.
+   */
+  group?: string
   /**
    * The workspace folder (the session's cwd) this snapshot belongs to, so
    * the project-wide quota can group every session of the same project.

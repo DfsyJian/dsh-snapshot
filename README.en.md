@@ -12,15 +12,15 @@
   <img alt="DeepSeek Harness Plugin" src="https://img.shields.io/badge/DeepSeek%20Harness-Plugin-0284c7?style=flat-square"> 
 </p>
 
-A DeepSeek Harness plugin for **automatic snapshots and one-click rollback** — before every `write`/`edit` it saves the target file contents, and `/rollback` restores any earlier snapshot (modeled after Trae's checkpoint capability). It also ships a sidebar "snapshot timeline" panel and a settings card.
+A DeepSeek Harness (DSH) Web plugin for **automatic snapshots and one-click rollback** — before every `write`/`edit` it saves the target file contents, and before a shell deletion (`Remove-Item`, `rm`) it saves the doomed file's contents, so `/rollback` restores any earlier snapshot (modeled after Trae's checkpoint capability). It also ships a sidebar "snapshot timeline" panel and a settings card.
 
 ## Features
 
-Before every `write`/`edit` the target file contents are snapshotted and appended to the session's `snapshots.jsonl`, annotated with the opening text of the user message that triggered the snapshot.
+Before every `write`/`edit` the target file contents are snapshotted, and a shell deletion (`Remove-Item`, `rm`) first snapshots the doomed file's contents; records append to the session's `snapshots.jsonl`. All snapshots triggered by the same user message are folded into one group: **the timeline shows one row per message, and rolling back a row restores every change that message produced**.
 
 ### UI
 
-- **Snapshot timeline**: the sidebar's bottom "Snapshots" button opens a panel listing every snapshot of the current session; each row shows the triggering user-message preview (rollback records read "Rollback to snapshot #N"), the tool, and the file path. Click a row to roll back to that state (the current state is recorded first, so you can roll back again); the header "Clear" button asks for confirmation before deleting all snapshots.
+- **Snapshot timeline**: the sidebar's bottom "Snapshots" button opens a panel listing the current session's history. One row is one message — all write/edit/delete mutations it triggered are folded together, showing the message preview and a per-kind summary such as `Create ×2 · Modify ×1` (only kinds that occurred; **counts are per file**, repeated writes to the same file count once), plus the file path when the message touched a single file (rollback records read "Rollback to snapshot #N"). Click a row to roll back the whole message's changes (the current state is recorded first, so you can roll back again); rolling back a message folds away everything after it by default (`collapseOnRollback`). The header "Clear" button asks for confirmation before deleting all snapshots.
 
 ![Snapshot timeline](docs/timeline.png)
 
@@ -28,9 +28,9 @@ Before every `write`/`edit` the target file contents are snapshotted and appende
 
 ### Commands
 
-- `/rollback list` lists the snapshots
-- `/rollback <seq> --yes` restores a snapshot (the current state is recorded first, so you can roll back again)
-- `/rollback --call <callId> --yes` rolls back by tool call
+- `/rollback list` lists the snapshot history (one line per message)
+- `/rollback <seq> --yes` restores all the changes of one message (the current state is recorded first, so you can roll back again)
+- `/rollback --call <callId> --yes` rolls back a single snapshot by tool call
 - `/rollback clear --yes` clears all snapshots of this session
 
 ## Install
@@ -70,8 +70,8 @@ Then fully stop and restart `dsh web`, and hard-refresh the browser with `Ctrl+S
 ## Usage
 
 ```sh
-/rollback list          # list all snapshots of this session
-/rollback <seq> --yes   # restore files to a snapshot (current state is recorded first, so it can be rolled back again)
+/rollback list          # list the snapshot history of this session (one line per message)
+/rollback <seq> --yes   # restore all changes of one message (the current state is recorded first, so it can be rolled back again)
 /rollback clear --yes   # clear all snapshots of this session
 ```
 
@@ -79,12 +79,12 @@ Then fully stop and restart `dsh web`, and hard-refresh the browser with `Ctrl+S
 
 | key | default | description |
 |---|---|---|
-| `enabled` | `true` | Master switch; when off, new writes/edits are no longer captured, existing snapshots are kept (rollback still works) |
+| `enabled` | `true` | Master switch; when off, new writes/edits/deletes are no longer captured, existing snapshots are kept (rollback still works) |
 | `storeDir` | `$DSH_HOME/snapshots` | Snapshot root directory, one subdirectory per session |
 | `maxRetain` | `100` | Max snapshots kept per session; `0` means unlimited |
 | `maxProjectRetain` | `100` | Project-wide cap: all sessions sharing a workspace (session cwd) share this quota; on overflow the oldest by capture time is pruned; `0` means unlimited |
 | `pruneOrphans` | `true` | Orphan pruning: when the workspace directory of a session no longer exists, all its snapshots are deleted (unrollbackable, space only); `false` keeps them |
-| `collapseOnRollback` | `true` | Collapse the timeline on rollback: restoring a snapshot also removes that snapshot and everything after it (rollback records included); the list keeps only the history before the rollback point. `false` keeps the superseded snapshots and the rollback record |
+| `collapseOnRollback` | `true` | Collapse the timeline on rollback: restoring a message also removes that message and everything after it (rollback records included); the list keeps only the history before the rollback point. `false` keeps the superseded snapshots and the rollback record |
 
 Configuration can be done in either of two ways; the keys match the table above.
 

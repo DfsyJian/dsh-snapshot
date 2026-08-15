@@ -1,8 +1,9 @@
 /**
  * Sidebar timeline entry: a `sidebar.footer.action` button that opens a panel
- * listing the current session's snapshots. Each row can roll that snapshot
- * back with one click (`/rollback <seq> --yes`), and a header action clears
- * every snapshot after an in-panel confirmation (`/rollback clear --yes`).
+ * listing the current session's snapshot groups — one row per user message
+ * (all of its write/edit/delete mutations folded together). Each row can roll that
+ * group back with one click (`/rollback <seq> --yes`), and a header action
+ * clears every snapshot after an in-panel confirmation (`/rollback clear --yes`).
  * Data comes from the same `/rollback list` command, so the panel needs no
  * dedicated host API.
  * @module dsh-snapshot/client/TimelineEntry
@@ -10,44 +11,82 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { IconDownloadOutline16, IconRefreshOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconRefreshOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SnapshotClientInjected } from './types.js'
 import { UpdatePanel } from './UpdatePanel.js'
+import { CURRENT_VERSION } from './update-check.js'
 
 /** Full props: the sidebar footer-action slot share plus the rollback channel. */
 type TimelineEntryProps = PropsRuntime<'sidebar.footer.action'> & PropsLocale<'snapshot'> & InjectFace<SnapshotClientInjected>
 
-/** One parsed snapshot row from the command's text listing. */
+/** One parsed timeline row: a user message's snapshots, or one rollback action. */
 interface TimelineItem {
+  /** Sequence of the row's first record; the rollback target. */
   seq: number
   time: string
+  /** Number of mutations folded into this row. */
+  count: number
+  /** Number of distinct files this row touches. */
+  files: number
+  /** Created files in this row. */
+  create: number
+  /** Edited existing files in this row. */
+  modify: number
+  /** Deleted files in this row (captured from shell delete commands). */
+  delete: number
   tool: string
   path: string
   size: string
+  /** Each distinct file of the row and the kind of its first record. */
+  paths: Array<{ kind: string; path: string }>
   /** User-message preview trailing the row; absent on old or rollback records. */
   prompt?: string
 }
 
-/** Matches `/rollback list` rows: `#<seq> <time> <tool> <path> (<size>) [<prompt>]`. */
-const LINE_PATTERN = /^#(\d+)\s+(\S+)\s+(\S+)\s+(.+?)\s+\((create|\d+ bytes)\)(?:\s+(.*))?$/u
+/**
+ * Matches `/rollback list` rows:
+ * `#<seq> <time> <count> <files> <create> <modify> <delete> <tool> <path> (<size>) [<prompt>]`.
+ */
+const LINE_PATTERN = /^#(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(.+?)\s+\((create|\d+ bytes)\)(?:\s+(.*))?$/u
 
-/** Parse the command's multi-line listing into rows (lenient on noise). */
+/** Matches one per-file detail line following a row: `  <kind> <path>`. */
+const DETAIL_PATTERN = /^ {2}(create|modify|delete|rollback) (.+)$/u
+
+/**
+ * Parse the command's multi-line listing into rows (lenient on noise). Each
+ * row's indented detail lines — one per touched file — attach to the row that
+ * precedes them.
+ */
 function parseList(text: string): TimelineItem[] {
   const items: TimelineItem[] = []
+  let current: TimelineItem | undefined
   for (const line of text.split('\n')) {
     const match = LINE_PATTERN.exec(line)
-    if (match === null) continue
-    const prompt = match[6]?.trim()
-    items.push({
-      seq: Number(match[1]),
-      time: match[2] ?? '',
-      tool: match[3] ?? '',
-      path: match[4] ?? '',
-      size: match[5] ?? '',
-      prompt: prompt === undefined || prompt.length === 0 ? undefined : prompt,
-    })
+    if (match !== null) {
+      const prompt = match[11]?.trim()
+      current = {
+        seq: Number(match[1]),
+        time: match[2] ?? '',
+        count: Number(match[3] ?? '1'),
+        files: Number(match[4] ?? '1'),
+        create: Number(match[5] ?? '0'),
+        modify: Number(match[6] ?? '0'),
+        delete: Number(match[7] ?? '0'),
+        tool: match[8] ?? '',
+        path: match[9] ?? '',
+        size: match[10] ?? '',
+        paths: [],
+        prompt: prompt === undefined || prompt.length === 0 ? undefined : prompt,
+      }
+      items.push(current)
+      continue
+    }
+    const detail = DETAIL_PATTERN.exec(line)
+    if (detail !== null && current !== undefined) {
+      current.paths.push({ kind: detail[1] ?? '', path: detail[2] ?? '' })
+    }
   }
   return items
 }
@@ -58,6 +97,14 @@ function fmtTime(iso: string): string {
   if (Number.isNaN(date.getTime())) return iso
   const pad = (n: number): string => String(n).padStart(2, '0')
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+/** Render a snapshot's ISO time as a full local `YYYY-MM-DD HH:mm:ss` label. */
+function fmtFullTime(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
 /** Matches the host-side rollback record prompt so it can be localized. */
@@ -71,6 +118,30 @@ const toolLabel = (tool: string, t: TimelineEntryProps['t']): string => {
   return tool
 }
 
+/** Localized label for a per-file detail kind tag, passed through when unknown. */
+const kindLabel = (kind: string, t: TimelineEntryProps['t']): string => {
+  if (kind === 'create') return t('timeline.kindCreate')
+  if (kind === 'modify') return t('timeline.kindModify')
+  if (kind === 'delete') return t('timeline.kindDelete')
+  if (kind === 'rollback') return t('timeline.toolRollback')
+  return kind
+}
+
+/**
+ * The hover tooltip for one row: every file it touches with its kind, e.g.
+ * `创建 D:\…\1.html\n修改 D:\…\2.html`. Legacy rows without detail lines fall
+ * back to the single path.
+ * @param item - the timeline row.
+ * @param t - locale reader.
+ * @returns the tooltip text, or undefined when no path is known.
+ */
+function rowPathsTitle(item: TimelineItem, t: TimelineEntryProps['t']): string | undefined {
+  if (item.paths.length > 0) {
+    return item.paths.map(entry => `${kindLabel(entry.kind, t)} ${entry.path}`).join('\n')
+  }
+  return item.files === 1 ? item.path : undefined
+}
+
 /** The primary line for one row: its user-prompt preview, or the rollback note. */
 function rowTitle(item: TimelineItem, t: TimelineEntryProps['t']): string {
   if (item.prompt !== undefined) {
@@ -79,6 +150,48 @@ function rowTitle(item: TimelineItem, t: TimelineEntryProps['t']): string {
     return item.prompt
   }
   return item.tool === 'rollback' ? t('timeline.toolRollback') : item.path
+}
+
+/**
+ * The secondary line for one row: a per-kind summary of the changes it folds
+ * together — 创建/修改/删除 counts, showing only the kinds that occurred — and
+ * the file path when the row touches a single file. Rollback rows (no
+ * mutations) fall back to the tool label and their own record count.
+ * @param item - the timeline row.
+ * @param t - locale reader.
+ * @returns the subtitle.
+ */
+function rowSubtitle(item: TimelineItem, t: TimelineEntryProps['t']): string {
+  const kinds: string[] = []
+  if (item.create > 0) kinds.push(`${t('timeline.kindCreate')} ×${item.create}`)
+  if (item.modify > 0) kinds.push(`${t('timeline.kindModify')} ×${item.modify}`)
+  if (item.delete > 0) kinds.push(`${t('timeline.kindDelete')} ×${item.delete}`)
+  if (kinds.length === 0) {
+    // Rollback bookkeeping folds into one row per action, not per kind.
+    const label = toolLabel(item.tool, t)
+    const count = item.count > 1 ? ` ×${item.count}` : ''
+    return `${label}${count}${item.files === 1 ? ` · ${item.path}` : ''}`
+  }
+  const summary = kinds.join(' · ')
+  return item.files === 1 ? `${summary} · ${item.path}` : summary
+}
+
+/**
+ * The rollback confirmation question for one row: a whole message group asks
+ * about its changes, a rollback row about undoing that rollback, and a lone
+ * snapshot keeps the per-record wording.
+ * @param seq - the row being confirmed.
+ * @param items - the timeline rows.
+ * @param t - locale reader.
+ * @returns the confirmation sentence.
+ */
+function rollbackConfirmLabel(seq: number, items: TimelineItem[], t: TimelineEntryProps['t']): string {
+  const item = items.find(candidate => candidate.seq === seq)
+  if (item?.tool === 'rollback') return t('timeline.rollbackConfirmRollback')
+  if (item !== undefined && item.files > 1) {
+    return `${t('timeline.rollbackConfirmCount')}${item.files}${t('timeline.rollbackBeforeGroup')}`
+  }
+  return `${t('timeline.rollbackConfirm')}${seq}${t('timeline.rollbackBefore')}?`
 }
 
 const overlayStyle: CSSProperties = {
@@ -129,7 +242,6 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
   const [confirmClear, setConfirmClear] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [hover, setHover] = useState(false)
-  const [updateHover, setUpdateHover] = useState(false)
   const [updateOpen, setUpdateOpen] = useState(false)
   const alive = useRef(true)
   useEffect(() => () => { alive.current = false }, [])
@@ -218,37 +330,6 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
           {wide ? <IconRefreshOutline14 size={16} /> : <IconRefreshOutline14 size={18} />}
           {wide && <span style={{ whiteSpace: 'nowrap' }}>{t('timeline.button')}</span>}
         </button>
-        <button
-          type="button"
-          title={t('update.check')}
-          aria-label={t('update.check')}
-          onClick={() => { setUpdateOpen(true) }}
-          onMouseEnter={() => { setUpdateHover(true) }}
-          onMouseLeave={() => { setUpdateHover(false) }}
-          style={{
-            border: 'none',
-            background: updateHover ? 'var(--dsw-alias-interactive-bg-hover)' : 'transparent',
-            cursor: 'pointer',
-            color: 'var(--dsw-alias-label-primary)',
-            overflow: 'hidden',
-            display: 'inline-flex',
-            alignItems: 'center',
-            boxSizing: 'border-box',
-            fontFamily: 'inherit',
-            fontSize: 14,
-            lineHeight: '22px',
-            flex: 'none',
-            width: wide ? undefined : 36,
-            height: wide ? 34 : 36,
-            gap: wide ? 8 : 0,
-            padding: wide ? '6px 10px' : 0,
-            borderRadius: wide ? 12 : '50%',
-            justifyContent: wide ? 'flex-start' : 'center',
-          }}
-        >
-          {wide ? <IconDownloadOutline16 size={16} /> : <IconDownloadOutline16 size={18} />}
-          {wide && <span style={{ whiteSpace: 'nowrap' }}>{t('update.check')}</span>}
-        </button>
       </div>
       {open && sessionId !== undefined && (
         <div style={overlayStyle} onClick={() => { setOpen(false) }}>
@@ -303,7 +384,7 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
             )}
             {confirmRollbackSeq !== null && (
               <div style={promptBarStyle}>
-                <span style={{ flex: 1 }}>{t('timeline.rollbackConfirm')}{confirmRollbackSeq}{t('timeline.rollbackBefore')}?</span>
+                <span style={{ flex: 1 }}>{rollbackConfirmLabel(confirmRollbackSeq, items, t)}</span>
                 <button type="button" onClick={() => { setConfirmRollbackSeq(null) }} disabled={rollingBack !== null} style={panelButtonStyle}>
                   {t('timeline.cancel')}
                 </button>
@@ -318,7 +399,7 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
             )}
             <div style={{ maxHeight: 300, overflowY: 'auto' }}>
               {items.map(item => (
-                <div key={item.seq} style={rowStyle}>
+                <div key={item.seq} style={rowStyle} title={rowPathsTitle(item, t)}>
                   <span style={{ minWidth: 28, alignSelf: 'flex-start', paddingTop: 5 }}>#{item.seq}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
@@ -327,15 +408,14 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                       }}
-                      title={item.path}
                     >
                       {rowTitle(item, t)}
                     </div>
                     <div style={{ opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {toolLabel(item.tool, t)} · {item.path}
+                      {rowSubtitle(item, t)}
                     </div>
                   </div>
-                  <span style={{ flex: 'none', opacity: 0.7, fontSize: 11 }}>{fmtTime(item.time)}</span>
+                  <span style={{ flex: 'none', opacity: 0.7, fontSize: 11 }} title={fmtFullTime(item.time)}>{fmtTime(item.time)}</span>
                   <button
                     type="button"
                     disabled={rollingBack !== null}
@@ -346,6 +426,15 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
                   </button>
                 </div>
               ))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--dsw-alias-border-l2)' }}>
+              <button type="button" onClick={() => { setUpdateOpen(true) }} style={panelButtonStyle}>
+                {t('update.check')}
+              </button>
+              <span style={{ flex: 1 }} />
+              <span style={{ opacity: 0.6, flex: 'none' }} title={`${t('timeline.version')} ${CURRENT_VERSION}`}>
+                {t('timeline.version')} {CURRENT_VERSION}
+              </span>
             </div>
           </div>
         </div>

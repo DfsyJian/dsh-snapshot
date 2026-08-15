@@ -1,6 +1,7 @@
 /**
- * dsh-snapshot: snapshot every write/edit the agent makes, then roll back to
- * any earlier state. Zero-config by design — every Config key is optional.
+ * dsh-snapshot: snapshot every write/edit/delete the agent makes, then roll
+ * back to any earlier state. Zero-config by design — every Config key is
+ * optional.
  * The same section is registered as the `snapshot` settings namespace, so a
  * configuration surface can edit it per installation while the entry config
  * stays the base layer.
