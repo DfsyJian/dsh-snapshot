@@ -20,7 +20,7 @@ Before every `write`/`edit` the target file contents are snapshotted, and a shel
 
 ### UI
 
-- **Snapshot timeline**: the sidebar's bottom "Snapshots" button opens a panel listing the current session's history. One row is one message — all write/edit/delete mutations it triggered are folded together, showing the message preview and a per-kind summary such as `Create ×2 · Modify ×1` (only kinds that occurred; **counts are per file**, repeated writes to the same file count once), plus the file path when the message touched a single file (rollback records read "Rollback to snapshot #N"). Click a row to roll back the whole message's changes (the current state is recorded first, so you can roll back again); rolling back a message folds away everything after it by default (`collapseOnRollback`). The header "Clear" button asks for confirmation before deleting all snapshots.
+- **Snapshot timeline**: the sidebar's bottom "Snapshots" button opens a panel listing the current session's history. One row is one message — all write/edit/delete mutations it triggered are folded together, showing the message preview and a per-kind summary such as `Create ×2 · Modify ×1` (only kinds that occurred; **counts are per file**, repeated writes to the same file count once), plus the file path when the message touched a single file (rollback records read "Rollback to snapshot #N"). Click a row to roll back the whole message's changes (the current state is recorded first, so you can roll back again); rolling back a message folds away everything after it by default (`collapseOnRollback`). Hovering a row lists every file it touches with its Create/Modify/Delete kind, and hovering the time shows the full timestamp. The panel footer has a "Check for updates" entry on the bottom left and the plugin version on the bottom right. The header "Clear" button asks for confirmation before deleting all snapshots.
 
 ![Snapshot timeline](docs/timeline.png)
 
@@ -69,11 +69,7 @@ Then fully stop and restart `dsh web`, and hard-refresh the browser with `Ctrl+S
 
 ## Usage
 
-```sh
-/rollback list          # list the snapshot history of this session (one line per message)
-/rollback <seq> --yes   # restore all changes of one message (the current state is recorded first, so it can be rolled back again)
-/rollback clear --yes   # clear all snapshots of this session
-```
+See [Commands](#commands) and [UI](#ui) above.
 
 ## Configuration (all optional; works with zero config)
 

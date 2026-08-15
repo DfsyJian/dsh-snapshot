@@ -22,7 +22,7 @@ import { CURRENT_VERSION } from './update-check.js'
 type TimelineEntryProps = PropsRuntime<'sidebar.footer.action'> & PropsLocale<'snapshot'> & InjectFace<SnapshotClientInjected>
 
 /** One parsed timeline row: a user message's snapshots, or one rollback action. */
-interface TimelineItem {
+export interface TimelineItem {
   /** Sequence of the row's first record; the rollback target. */
   seq: number
   time: string
@@ -58,8 +58,10 @@ const DETAIL_PATTERN = /^ {2}(create|modify|delete|rollback) (.+)$/u
  * Parse the command's multi-line listing into rows (lenient on noise). Each
  * row's indented detail lines — one per touched file — attach to the row that
  * precedes them.
+ * @param text - the `/rollback list` output text.
+ * @returns the parsed rows.
  */
-function parseList(text: string): TimelineItem[] {
+export function parseList(text: string): TimelineItem[] {
   const items: TimelineItem[] = []
   let current: TimelineItem | undefined
   for (const line of text.split('\n')) {
@@ -92,7 +94,7 @@ function parseList(text: string): TimelineItem[] {
 }
 
 /** Render a snapshot's ISO time as a short local `HH:mm` label. */
-function fmtTime(iso: string): string {
+export function fmtTime(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return iso
   const pad = (n: number): string => String(n).padStart(2, '0')
@@ -119,7 +121,7 @@ const toolLabel = (tool: string, t: TimelineEntryProps['t']): string => {
 }
 
 /** Localized label for a per-file detail kind tag, passed through when unknown. */
-const kindLabel = (kind: string, t: TimelineEntryProps['t']): string => {
+export const kindLabel = (kind: string, t: TimelineEntryProps['t']): string => {
   if (kind === 'create') return t('timeline.kindCreate')
   if (kind === 'modify') return t('timeline.kindModify')
   if (kind === 'delete') return t('timeline.kindDelete')
@@ -142,8 +144,13 @@ function rowPathsTitle(item: TimelineItem, t: TimelineEntryProps['t']): string |
   return item.files === 1 ? item.path : undefined
 }
 
-/** The primary line for one row: its user-prompt preview, or the rollback note. */
-function rowTitle(item: TimelineItem, t: TimelineEntryProps['t']): string {
+/**
+ * The primary line for one row: its user-prompt preview, or the rollback note.
+ * @param item - the timeline row.
+ * @param t - locale reader.
+ * @returns the primary line.
+ */
+export function rowTitle(item: TimelineItem, t: TimelineEntryProps['t']): string {
   if (item.prompt !== undefined) {
     const rollback = ROLLBACK_PROMPT.exec(item.prompt)
     if (rollback !== null) return `${t('timeline.rollbackTo')} #${rollback[1]}`
@@ -161,7 +168,7 @@ function rowTitle(item: TimelineItem, t: TimelineEntryProps['t']): string {
  * @param t - locale reader.
  * @returns the subtitle.
  */
-function rowSubtitle(item: TimelineItem, t: TimelineEntryProps['t']): string {
+export function rowSubtitle(item: TimelineItem, t: TimelineEntryProps['t']): string {
   const kinds: string[] = []
   if (item.create > 0) kinds.push(`${t('timeline.kindCreate')} ×${item.create}`)
   if (item.modify > 0) kinds.push(`${t('timeline.kindModify')} ×${item.modify}`)
@@ -185,7 +192,7 @@ function rowSubtitle(item: TimelineItem, t: TimelineEntryProps['t']): string {
  * @param t - locale reader.
  * @returns the confirmation sentence.
  */
-function rollbackConfirmLabel(seq: number, items: TimelineItem[], t: TimelineEntryProps['t']): string {
+export function rollbackConfirmLabel(seq: number, items: readonly TimelineItem[], t: TimelineEntryProps['t']): string {
   const item = items.find(candidate => candidate.seq === seq)
   if (item?.tool === 'rollback') return t('timeline.rollbackConfirmRollback')
   if (item !== undefined && item.files > 1) {
@@ -400,7 +407,7 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
             <div style={{ maxHeight: 300, overflowY: 'auto' }}>
               {items.map(item => (
                 <div key={item.seq} style={rowStyle} title={rowPathsTitle(item, t)}>
-                  <span style={{ minWidth: 28, alignSelf: 'flex-start', paddingTop: 5 }}>#{item.seq}</span>
+                  <span style={{ minWidth: 22, alignSelf: 'flex-start', paddingTop: 5 }}>#{item.seq}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
@@ -427,12 +434,12 @@ export function TimelineEntry({ wide, useSessions, runRollback, t }: TimelineEnt
                 </div>
               ))}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--dsw-alias-border-l2)' }}>
-              <button type="button" onClick={() => { setUpdateOpen(true) }} style={panelButtonStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+              <button type="button" onClick={() => { setUpdateOpen(true) }} style={footerButtonStyle}>
                 {t('update.check')}
               </button>
               <span style={{ flex: 1 }} />
-              <span style={{ opacity: 0.6, flex: 'none' }} title={`${t('timeline.version')} ${CURRENT_VERSION}`}>
+              <span style={{ opacity: 0.45, flex: 'none', fontSize: 11 }} title={`${t('timeline.version')} ${CURRENT_VERSION}`}>
                 {t('timeline.version')} {CURRENT_VERSION}
               </span>
             </div>
@@ -452,6 +459,18 @@ const panelButtonStyle: CSSProperties = {
   borderRadius: 4,
   padding: '1px 8px',
   fontSize: 12,
+  lineHeight: 1.5,
+}
+
+/** Borderless text button for the panel footer (update check / version). */
+const footerButtonStyle: CSSProperties = {
+  border: 'none',
+  background: 'transparent',
+  cursor: 'pointer',
+  color: 'inherit',
+  opacity: 0.75,
+  padding: '1px 4px',
+  fontSize: 11,
   lineHeight: 1.5,
 }
 

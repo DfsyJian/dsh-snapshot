@@ -69,6 +69,12 @@ export const zh = {
   'update.found': '发现新版 v',
   'update.command': 'pnpm add dsh-snapshot@',
   'update.failed': '检查失败，请稍后重试',
+  'select.title': '回滚快照',
+  'select.acknowledge': '我了解此操作不可撤销，且会覆盖当前文件',
+  'select.failed': '回滚失败',
+  'select.rollbackTo': '撤回至快照 #',
+  'select.clear': '清空快照',
+  'select.clearDetail': '删除该会话的全部快照',
 } satisfies Record<string, string>
 
 /** The snapshot card key union. */
@@ -139,4 +145,10 @@ export const en = {
   'update.found': 'New version v',
   'update.command': 'pnpm add dsh-snapshot@',
   'update.failed': 'Check failed, try again later',
+  'select.title': 'Rollback snapshot',
+  'select.acknowledge': 'I understand this cannot be undone and overwrites current files',
+  'select.failed': 'Rollback failed',
+  'select.rollbackTo': 'Roll back to snapshot #',
+  'select.clear': 'Clear snapshots',
+  'select.clearDetail': 'Delete every snapshot of this session',
 } satisfies Record<SnapshotCardKey, string>

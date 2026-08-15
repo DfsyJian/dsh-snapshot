@@ -12,6 +12,10 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 // Type-only: pulls the ui-sidebar SlotMap merge (the footer.action seat).
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
+// Type-only: pulls the CommandUiRuntime Context merge (ctx.commandUi) and the
+// decoration types into this program.
+import type {} from '@deepseek-ai/dsh-client-ui-commands/client'
+import type { CommandUiContract } from '@deepseek-ai/dsh-client-ui-commands/client'
 // Type-only: pulls the settings-surface SlotMap merge and the ctx.settingsScope
 // Context merge.
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
@@ -21,6 +25,7 @@ import { TimelineEntry } from './TimelineEntry.js'
 import type { SnapshotClientInjected } from './types.js'
 import { SnapshotConfigCard, SnapshotConfigCardController, type SnapshotSettings } from './SnapshotConfigCard.js'
 import { en, zh, type SnapshotCardKey } from './snapshot-card-locale.js'
+import { buildRollbackDecoration, type RollbackExecute } from './rollback-select.js'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -62,6 +67,16 @@ export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'remote
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-snapshot: dictionaries')
+
+  const t = ctx.locale.bind(NS)
+  const execute: RollbackExecute = (sessionId, line, signal) => ctx.remote.commands.execute(sessionId, line, signal)
+
+  // 斜杠命令弹出面板:裸 `/rollback` 打开可搜索的快照选择器,选中项经共享
+  // shell 的风险确认后执行 `/rollback <seq> --yes`,与侧边栏时间线同通道。
+  ctx.inject(['commandUi', 'remote', 'remote.commands'], (scope: ClientContext) => {
+    const command = scope.get('commandUi') as CommandUiContract
+    scope.effect(() => command.decorate(buildRollbackDecoration(t, execute)), 'dsh-snapshot: /rollback decoration')
+  })
 
   // 侧边栏快照时间线:列出当前会话快照并逐条回滚。
   ctx.slots.inject('sidebar.footer.action', () =>

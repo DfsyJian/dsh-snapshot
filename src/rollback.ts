@@ -12,6 +12,11 @@
  * drops the restored group and everything after it (the rollback records
  * included), so the timeline folds back to the history before the rollback
  * point instead of keeping the superseded branch.
+ *
+ * All user-visible copy follows the Host's stored browser locale preference
+ * (`locale.preference`, written by the web client's Language setting): the
+ * command description is re-registered on change, and the handler picks the
+ * matching copy per invocation.
  * @module dsh-snapshot/rollback
  */
 
@@ -19,9 +24,108 @@ import { unlink } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { CommandResult } from '@deepseek-ai/dsh-commands'
+import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-fs'
 import type { SnapshotRecord } from './types.js'
 import type { SnapshotStore } from './snapshot-store.js'
+
+/**
+ * Host settings namespace and field of the browser locale preference. The
+ * web client's Language setting persists `preference` here; absence delegates
+ * to the browser and this plugin defaults to Chinese, the harness fallback.
+ */
+const LOCALE_SETTINGS_NAMESPACE = settingsNamespace('locale')
+const LOCALE_PREFERENCE_FIELD = 'preference'
+
+/** The locales the harness ships; server copy follows the stored preference. */
+type UiLocale = 'zh' | 'en'
+
+/** Fallback locale when no preference is stored or the settings service is absent. */
+const FALLBACK_LOCALE: UiLocale = 'zh'
+
+/** One /rollback copy: the user-visible strings in a single locale. */
+interface RollbackCopy {
+  /** Discovery-UI summary of the command. */
+  description: string
+  /** List output when the session has no snapshots. */
+  listEmpty: string
+  /** Restore of a file whose snapshot held content (write/edit/delete). */
+  restored: (path: string, seq: number) => string
+  /** Restore of a creation: the file was removed again. */
+  removedCreation: (path: string, seq: number) => string
+  /** A restore failed. */
+  restoreError: (message: string) => string
+  /** Group restore with no records. */
+  nothingToRestore: string
+  /** Whole-group restore succeeded. */
+  restoredGroup: (seq: number, count: number) => string
+  /** Clear confirmation gate. */
+  clearConfirm: string
+  /** Clear succeeded. */
+  clearDone: string
+  /** `--call` given without an id. */
+  missingCallId: string
+  /** `--call` matched no snapshot. */
+  callNotFound: (callId: string) => string
+  /** Restore confirmation gate. */
+  restoreConfirm: (path: string, seq: number, time: string) => string
+  /** Sequence token that is not an integer. */
+  invalidSeq: (value: string) => string
+  /** Sequence not present in the store. */
+  noSnapshot: (seq: number) => string
+}
+
+/** The /rollback copy in both shipped locales. */
+const ROLLBACK_COPY: Record<UiLocale, RollbackCopy> = {
+  zh: {
+    description: '列出、清空或恢复文件快照',
+    listEmpty: '该会话暂无快照记录。',
+    restored: (path, seq) => `已将 ${path} 还原至快照 #${seq}。`,
+    removedCreation: (path, seq) => `已移除 ${path}（还原快照 #${seq} 的创建）。`,
+    restoreError: message => `还原失败：${message}`,
+    nothingToRestore: '没有可还原的记录。',
+    restoredGroup: (seq, count) => `已还原快照 #${seq} 之前的 ${count} 处修改。`,
+    clearConfirm: '确定清空该会话的全部快照？追加 --yes 确认执行。',
+    clearDone: '已清空该会话的全部快照。',
+    missingCallId: '--call 后缺少调用 id。',
+    callNotFound: callId => `该会话没有调用 ${callId} 的写入/编辑/删除快照。`,
+    restoreConfirm: (path, seq, time) => `将 "${path}" 还原至快照 #${seq}（${time}）？追加 --yes 确认执行。`,
+    invalidSeq: value => `无效的快照序号：${value}`,
+    noSnapshot: seq => `该会话没有快照 #${seq}。`,
+  },
+  en: {
+    description: 'List, clear, or restore file snapshots',
+    listEmpty: 'No snapshots recorded in this session yet.',
+    restored: (path, seq) => `Restored ${path} to snapshot #${seq}.`,
+    removedCreation: (path, seq) => `Removed ${path} (restored snapshot #${seq} creation).`,
+    restoreError: message => `Restore failed: ${message}`,
+    nothingToRestore: 'Nothing to restore.',
+    restoredGroup: (seq, count) => `Restored ${count} change${count === 1 ? '' : 's'} before snapshot #${seq}.`,
+    clearConfirm: 'Clear every snapshot of this session? Re-run with --yes to confirm.',
+    clearDone: 'Cleared every snapshot of this session.',
+    missingCallId: 'Missing call id after --call.',
+    callNotFound: callId => `No write/edit/delete snapshot for call ${callId} in this session.`,
+    restoreConfirm: (path, seq, time) => `Restore "${path}" to snapshot #${seq} (${time})? Re-run with --yes to confirm.`,
+    invalidSeq: value => `Invalid snapshot sequence: ${value}`,
+    noSnapshot: seq => `No snapshot #${seq} in this session.`,
+  },
+}
+
+/**
+ * The active locale from the Host's stored preference; Chinese when unset.
+ * The settings service is optional in the harness (profiles may omit the
+ * provider), so it is read via `ctx.get`, which returns undefined when absent
+ * — unlike the typed `ctx.settings` accessor, which demands an inject
+ * declaration and throws during apply otherwise.
+ * @param ctx - plugin context whose optional settings service holds the section.
+ * @returns the locale to render copy in.
+ */
+function readLocale(ctx: Context): UiLocale {
+  const settings = ctx.get('settings') as { get(ns: unknown): unknown } | undefined
+  if (settings === undefined) return FALLBACK_LOCALE
+  const section = settings.get(LOCALE_SETTINGS_NAMESPACE) as Record<string, unknown> | undefined
+  return section?.[LOCALE_PREFERENCE_FIELD] === 'en' ? 'en' : 'zh'
+}
 
 /** One restore target: the record plus its rollback record's label and group tag. */
 interface RestoreSpec {
@@ -90,6 +194,7 @@ async function restoreRecord(
   agent: Agent,
   store: SnapshotStore,
   { record, prompt, group }: RestoreSpec,
+  copy: RollbackCopy,
 ): Promise<CommandResult> {
   try {
     const target = await ctx.fs.resolve(record.path, { cwd: agent.session.header.cwd })
@@ -108,7 +213,7 @@ async function restoreRecord(
       // unlink directly — valid for the local backend where displayPath
       // is an absolute path; remote backends fail with an explicit error.
       if (current !== null) await unlink(target.displayPath)
-      return { kind: 'success', text: `Removed ${record.path} (restored snapshot #${record.seq} creation).` }
+      return { kind: 'success', text: copy.removedCreation(record.path, record.seq) }
     }
     // Rollback is a human-invoked, --yes-confirmed operation: it restores
     // the user's own files, so it writes under danger-full-access like an
@@ -118,9 +223,9 @@ async function restoreRecord(
       mode: 'danger-full-access',
       workspaceRoot: agent.session.header.cwd ?? '',
     })
-    return { kind: 'success', text: `Restored ${record.path} to snapshot #${record.seq}.` }
+    return { kind: 'success', text: copy.restored(record.path, record.seq) }
   } catch (error: unknown) {
-    return { kind: 'error', text: `Restore failed: ${error instanceof Error ? error.message : String(error)}` }
+    return { kind: 'error', text: copy.restoreError(error instanceof Error ? error.message : String(error)) }
   }
 }
 
@@ -141,11 +246,12 @@ async function restoreOne(
   store: SnapshotStore,
   record: SnapshotRecord,
   collapse: () => boolean,
+  copy: RollbackCopy,
 ): Promise<CommandResult> {
   const result = await restoreRecord(ctx, agent, store, {
     record,
     prompt: `回滚至快照 #${record.seq}`,
-  })
+  }, copy)
   if (result.kind === 'success' && collapse()) await store.truncateFrom(record.seq)
   return result
 }
@@ -171,9 +277,10 @@ async function restoreGroup(
   store: SnapshotStore,
   records: SnapshotRecord[],
   collapse: () => boolean,
+  copy: RollbackCopy,
 ): Promise<CommandResult> {
   const first = [...records].sort((a, b) => a.seq - b.seq)[0]
-  if (first === undefined) return { kind: 'error', text: 'Nothing to restore.' }
+  if (first === undefined) return { kind: 'error', text: copy.nothingToRestore }
   // One synthetic group per rollback action, so its rollback records stay a
   // single timeline row (and a single rollback) instead of one row per file.
   const rollbackGroup = `rollback:${first.seq}:${Date.now().toString(36)}`
@@ -183,14 +290,14 @@ async function restoreGroup(
       record,
       prompt: `回滚至快照 #${first.seq}`,
       group: rollbackGroup,
-    })
+    }, copy)
     if (result.kind === 'error') failures.push(result.text)
   }
   if (failures.length === 0 && collapse()) await store.truncateFrom(first.seq)
   if (failures.length > 0) return { kind: 'error', text: failures.join('; ') }
   return {
     kind: 'success',
-    text: `Restored ${records.length} change${records.length === 1 ? '' : 's'} before message #${first.seq}.`,
+    text: copy.restoredGroup(first.seq, records.length),
   }
 }
 
@@ -205,7 +312,10 @@ function fileKind(record: SnapshotRecord): SnapshotGroupFileKind {
 const FILE_KIND_RANK: Record<SnapshotGroupFileKind, number> = { create: 0, modify: 1, delete: 2, rollback: 3 }
 
 /**
- * Install the /rollback command on the receiving agent.
+ * Install the /rollback command on the receiving agent. The command
+ * description follows the stored locale at registration and is re-registered
+ * when the preference changes, so discovery UI switches language live; the
+ * handler reads the same preference per invocation for its result copy.
  * @param ctx - plugin context that owns the command.
  * @param makeStore - per-session snapshot store factory; the workspace cwd tags
  * the store's project for the project-wide quota.
@@ -217,9 +327,9 @@ export function applyRollback(
   makeStore: (sessionId: string, project?: string) => SnapshotStore,
   collapse: () => boolean = () => true,
 ): void {
-  ctx.commands.register({
+  const registerCommand = (copy: RollbackCopy): (() => void) => ctx.commands.register({
     name: 'rollback',
-    description: 'List, clear, or restore file snapshots',
+    description: copy.description,
     input: { hint: 'list | clear --yes | <seq> --yes | --call <callId> --yes' },
     async handler({ agent, rawInput }): Promise<CommandResult> {
       const args = rawInput.trim().split(/\s+/u).filter(part => part.length > 0)
@@ -227,7 +337,7 @@ export function applyRollback(
       if (args.length === 0 || args[0] === 'list') {
         const records = await store.list()
         if (records.length === 0) {
-          return { kind: 'success', text: 'No snapshots recorded in this session yet.' }
+          return { kind: 'success', text: copy.listEmpty }
         }
         // One line per group: a user message's snapshots, or one rollback
         // action's records. The numeric tokens after the time — total count,
@@ -304,10 +414,10 @@ export function applyRollback(
       // drives this form after its own in-panel confirmation.
       if (args[0] === 'clear') {
         if (!args.includes('--yes')) {
-          return { kind: 'error', text: 'Clear every snapshot of this session? Re-run with --yes to confirm.' }
+          return { kind: 'error', text: copy.clearConfirm }
         }
         await store.clear()
-        return { kind: 'success', text: 'Cleared every snapshot of this session.' }
+        return { kind: 'success', text: copy.clearDone }
       }
       // Restore by tool call: --call <callId> [--yes] rolls the file back to
       // the latest write/edit snapshot of that call.
@@ -315,35 +425,37 @@ export function applyRollback(
       if (callIndex >= 0) {
         const callId = args[callIndex + 1]
         if (callId === undefined || callId.length === 0) {
-          return { kind: 'error', text: 'Missing call id after --call.' }
+          return { kind: 'error', text: copy.missingCallId }
         }
         const records = await store.list()
         const record = [...records].reverse().find(candidate =>
           candidate.tool !== 'rollback' && candidate.callId === callId)
         if (record === undefined) {
-          return { kind: 'error', text: `No write/edit/delete snapshot for call ${callId} in this session.` }
+          return { kind: 'error', text: copy.callNotFound(callId) }
         }
         if (!args.includes('--yes')) {
           return {
             kind: 'error',
-            text: `Restore "${record.path}" to snapshot #${record.seq} (${record.time})? Re-run with --yes to confirm.`,
+            text: copy.restoreConfirm(record.path, record.seq, record.time),
           }
         }
-        return restoreOne(ctx, agent, store, record, collapse)
+        return restoreOne(ctx, agent, store, record, collapse, copy)
       }
       const seq = Number(args[0])
       if (!Number.isInteger(seq)) {
-        return { kind: 'error', text: `Invalid snapshot sequence: ${args[0]}` }
+        // args is non-empty here (an empty line returns the list branch), so
+        // the token is always present; ?? guards the indexed-access type.
+        return { kind: 'error', text: copy.invalidSeq(args[0] ?? '') }
       }
       const records = await store.list()
       const record = records.find(candidate => candidate.seq === seq)
       if (record === undefined) {
-        return { kind: 'error', text: `No snapshot #${seq} in this session.` }
+        return { kind: 'error', text: copy.noSnapshot(seq) }
       }
       if (!args.includes('--yes')) {
         return {
           kind: 'error',
-          text: `Restore "${record.path}" to snapshot #${seq} (${record.time})? Re-run with --yes to confirm.`,
+          text: copy.restoreConfirm(record.path, seq, record.time),
         }
       }
       // A grouped record rolls back with its whole message; an ungrouped
@@ -351,9 +463,19 @@ export function applyRollback(
       const key = groupKey(record)
       const groupRecords = records.filter(candidate => groupKey(candidate) === key)
       if (groupRecords.length === 1) {
-        return restoreOne(ctx, agent, store, record, collapse)
+        return restoreOne(ctx, agent, store, record, collapse, copy)
       }
-      return restoreGroup(ctx, agent, store, groupRecords, collapse)
+      return restoreGroup(ctx, agent, store, groupRecords, collapse, copy)
     },
+  })
+  let dispose = registerCommand(ROLLBACK_COPY[readLocale(ctx)])
+  // The web client persists the Language preference in Host settings; a live
+  // switch re-registers the description so discovery UI follows it. The
+  // handler already reads the preference per invocation, so its copy needs no
+  // re-registration.
+  ctx.on('settings/document-updated', (ns) => {
+    if (ns !== LOCALE_SETTINGS_NAMESPACE) return
+    dispose()
+    dispose = registerCommand(ROLLBACK_COPY[readLocale(ctx)])
   })
 }
