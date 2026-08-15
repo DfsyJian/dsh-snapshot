@@ -22,11 +22,15 @@ Before every `write`/`edit` the target file contents are snapshotted, and a shel
 
 - **Snapshot timeline**: the sidebar's bottom "Snapshots" button opens a panel listing the current session's history. One row is one message — all write/edit/delete mutations it triggered are folded together, showing the message preview and a per-kind summary such as `Create ×2 · Modify ×1` (only kinds that occurred; **counts are per file**, repeated writes to the same file count once), plus the file path when the message touched a single file (rollback records read "Rollback to snapshot #N"). Click a row to roll back the whole message's changes (the current state is recorded first, so you can roll back again); rolling back a message folds away everything after it by default (`collapseOnRollback`). Hovering a row lists every file it touches with its Create/Modify/Delete kind, and hovering the time shows the full timestamp. The panel footer has a "Check for updates" entry on the bottom left and the plugin version on the bottom right. The header "Clear" button asks for confirmation before deleting all snapshots.
 
-![Snapshot timeline](docs/timeline.png)
+- **`/rollback` picker**: typing `/rollback` in the composer opens a searchable selection panel (the same popupSelect interaction as `/model`), so you do not need to memorize subcommands: a **Clear snapshots** command row at the top deletes every snapshot after an in-shell risk confirmation, and each snapshot is one **Roll back to snapshot #N** row whose detail shows the time and the Create/Modify/Delete file list — typing a sequence number, file name, or kind filters the rows instantly. Picking a rollback row shows the risk confirmation bar first; confirming runs the rollback.
+
+![Snapshot timeline](docs/timeline1.png)
 
 - **Settings card**: the plugin config page shows a snapshot card with two-state switches for booleans and number fields that fall back to the plugin default when blank or restored; edits apply immediately.
 
 ### Commands
+
+Typing `/rollback` opens the selection panel; the full subcommand syntax:
 
 - `/rollback list` lists the snapshot history (one line per message)
 - `/rollback <seq> --yes` restores all the changes of one message (the current state is recorded first, so you can roll back again)
