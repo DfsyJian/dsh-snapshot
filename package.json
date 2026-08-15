@@ -1,6 +1,6 @@
 {
   "name": "dsh-snapshot",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "Snapshot every write/edit the agent makes, then roll back to any earlier state. Includes a browser half: sidebar snapshot timeline and plugin settings card.",
   "author": "zhu1090093659",
   "license": "MIT",
